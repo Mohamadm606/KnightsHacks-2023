@@ -1,0 +1,154 @@
+<html>
+  <head>
+    <title>Simple Map</title>
+    <style>
+    #map {
+      height: 100%;
+    }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default">
+      
+    </script>
+
+    <link rel="stylesheet" type="text/css" href="./style.css" />
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    
+    <script>
+      let map;
+      async function initMap() {
+        try {
+          const googleMaps = await google.maps.importLibrary("maps");
+  
+          const {Polyline} = await google.maps.importLibrary("maps");
+
+          map = new googleMaps.Map(document.getElementById("map"), {
+            center: { lat: 37.0902, lng: -95.7129 },
+            zoom: 4,
+            gestureHandling: "none"
+          });
+  
+          const drawingManager = new google.maps.drawing.DrawingManager({
+            drawingMode: google.maps.drawing.OverlayType.POLYLINE,
+            drawingControl: true, // Enable the drawing control panel
+            drawingControlOptions: {
+              position: google.maps.ControlPosition.TOP_CENTER,
+              drawingModes: [
+                google.maps.drawing.OverlayType.MARKER,
+                google.maps.drawing.OverlayType.CIRCLE,
+                google.maps.drawing.OverlayType.POLYGON,
+                google.maps.drawing.OverlayType.POLYLINE,
+                google.maps.drawing.OverlayType.RECTANGLE,
+              ],
+            },
+            markerOptions: {
+              icon: "https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png",
+            },
+            circleOptions: {
+              fillColor: "#ffff00",
+              fillOpacity: 1,
+              strokeWeight: 5,
+              clickable: false,
+              editable: true,
+              zIndex: 1,
+            },
+          });
+  
+          drawingManager.setMap(map);
+
+          // add listener for when polyline is complete
+          google.maps.event.addListener(drawingManager, "polylinecomplete", function (polyline) {
+            console.log("eventhandled");
+            // get path
+            const path = polyline.getPath();
+            let coordinates = [];
+
+            let heatmapData = [];
+
+            // for coordinate in path, add lat and lang to coordinates
+            for (let i = 0; i < path.getLength(); i++) {
+              const latLng = path.getAt(i);
+              coordinates.push({ lat: latLng.lat(), lng: latLng.lng() });
+            }
+
+            for (let i = 1; i < coordinates.length; i++) {
+              let x1 = coordinates[i - 1]['lat'], y1 = coordinates[i - 1]['lng'];
+              let x2 = coordinates[i]['lat'], y2 = coordinates[i]['lng'];
+              console.log(`x1: ${x1}, x2: ${x2}, y1: ${y1}, y21: ${y2} `)
+              let xdiff = x2 - x1;
+              let ydiff = y2 - y1;
+              const N = 8 * Math.sqrt(xdiff * xdiff + ydiff * ydiff);
+
+              for (let j = 0; j <= N; j++) {
+                heatmapData.push(new google.maps.LatLng(x1 + xdiff * (j * 1.0 / N), y1 + ydiff * (j * 1.0 / N)))
+              } 
+
+              
+            }
+            loadHeatMap(heatmapData);
+            
+
+          });
+    
+
+    const polyline = new Polyline({
+      strokeColor: "#FF0000",
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+    });
+
+    polyline.setMap(map);
+        
+        heatmap.setMap(map);
+
+        } catch (error) {
+          console.error("Error loading Google Maps:", error);
+        }
+      }
+
+      function loadHeatMap(data) {
+        console.log("placed heatmap");
+        var heatmap = new google.maps.visualization.HeatmapLayer({
+          data: data,
+          radius: 80,
+        });
+
+        heatmap.setMap(map);
+      }
+      
+      function placeCircle(latitude, longitude, radius, color) {
+        console.log("PLACED");
+      const googleMaps = google.maps;
+      const mapCenter = new googleMaps.LatLng(latitude, longitude);
+
+      const circle = new googleMaps.Circle({
+        center: mapCenter,
+        radius: 80000 * radius, // Set the radius in meters (adjust as needed)
+        fillColor: color,
+        fillOpacity: 0.08,
+        strokeWeight: 0,
+        map: map,
+      });
+      }
+  
+      (function () {
+        const script = document.createElement("script");
+        script.type = "text/javascript";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&v=weekly&callback=initMap&libraries=places,drawing,visualization`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
