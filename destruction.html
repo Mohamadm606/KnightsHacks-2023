@@ -30,13 +30,16 @@
         try {
           const googleMaps = await google.maps.importLibrary("maps");
   
+          const {Polyline} = await google.maps.importLibrary("maps");
+
           map = new googleMaps.Map(document.getElementById("map"), {
             center: { lat: 37.0902, lng: -95.7129 },
             zoom: 4,
+            gestureHandling: "none"
           });
   
           const drawingManager = new google.maps.drawing.DrawingManager({
-            drawingMode: google.maps.drawing.OverlayType.MARKER,
+            drawingMode: google.maps.drawing.OverlayType.POLYLINE,
             drawingControl: true, // Enable the drawing control panel
             drawingControlOptions: {
               position: google.maps.ControlPosition.TOP_CENTER,
@@ -62,6 +65,30 @@
           });
   
           drawingManager.setMap(map);
+
+          // add listener for when polyline is complete
+          google.maps.event.addListener(drawingManager, "polylinecomplete", function (polyline) {
+            console.log("eventhandled");
+            // get path
+            const path = polyline.getPath();
+            let coordinates = [];
+
+            // for coordinate in path, add lat and lang to coordinates
+            for (let i = 0; i < path.getLength(); i++) {
+              const latLng = path.getAt(i);
+              coordinates.push({ lat: latLng.lat(), lng: latLng.lng() });
+            }
+            console.log(coordinates);
+          });
+
+    const polyline = new Polyline({
+      strokeColor: "#FF0000",
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+    });
+
+    polyline.setMap(map);
+
         } catch (error) {
           console.error("Error loading Google Maps:", error);
         }
