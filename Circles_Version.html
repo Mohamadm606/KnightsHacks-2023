@@ -1,3 +1,5 @@
+
+<!---->
 <html>
   <head>
     <title>Simple Map</title>
@@ -22,6 +24,23 @@
   </head>
   <body>
     <div id="map"></div>
+
+    <div id="cat" style="position: absolute; top: 30px; right: 50px; border: 5px solid #045c5a; border-radius: 5px; padding: 3px; background-color:rgb(247, 247, 235);">
+      <label style="border-right: 2px solid red; padding: 4px;">Choose Category</label>
+      <button onclick="changeCategory()" id="level" value="1">1</button>
+    </div>
+
+    </div>
+  
+    <script>
+        function toggle(){
+            i=document.getElementById("level").value;
+            document.getElementById("level").innerHTML=(parseInt(i)%5)+1
+            document.getElementById("level").value=(parseInt(i)%5)+1
+        }
+    </script>
+
+  
 
     
     <script>
@@ -75,11 +94,14 @@
 
             let heatmapData = [];
 
+
             // for coordinate in path, add lat and lang to coordinates
             for (let i = 0; i < path.getLength(); i++) {
               const latLng = path.getAt(i);
               coordinates.push({ lat: latLng.lat(), lng: latLng.lng() });
             }
+
+
 
             for (let i = 1; i < coordinates.length; i++) {
               let x1 = coordinates[i - 1]['lat'], y1 = coordinates[i - 1]['lng'];
@@ -87,6 +109,9 @@
               console.log(`x1: ${x1}, x2: ${x2}, y1: ${y1}, y21: ${y2} `)
               let xdiff = x2 - x1;
               let ydiff = y2 - y1;
+
+
+
               const N = 8 * Math.sqrt(xdiff * xdiff + ydiff * ydiff);
 
               for (let j = 0; j <= N; j++) {
@@ -101,26 +126,46 @@
           });
     
 
-    const polyline = new Polyline({
-      strokeColor: "#FF0000",
-      strokeOpacity: 1.0,
-      strokeWeight: 2,
-    });
+          const polyline = new Polyline({
+            strokeColor: "#FF0000",
+            strokeOpacity: 1.0,
+            strokeWeight: 2,
+          });
 
-    polyline.setMap(map);
+          polyline.setMap(map);
         
-        heatmap.setMap(map);
+          heatmap.setMap(map);
+
 
         } catch (error) {
           console.error("Error loading Google Maps:", error);
         }
       }
 
+
+
+
+      let catInput = 1; // Initialize with the default category value
+
+      function changeCategory() {
+        const button = document.getElementById("level");
+        catInput = parseInt(button.value);
+        button.innerHTML = (catInput % 5) + 1;
+        button.value = (catInput % 5) + 1;
+      }
+
       function loadHeatMap(data) {
         console.log("placed heatmap");
+        const numbersArray = [8.432, 10.261, 12, 14.26, 15.5];
+        // const radius = numbersArray[catInput - 1];
+        // console.log(radius);
+        cat = document.getElementById("level");
+        lvl = parseInt(cat.value);
+        console.log(numbersArray[lvl-1]);
+        // Create a heatmap with the updated radius
         var heatmap = new google.maps.visualization.HeatmapLayer({
           data: data,
-          radius: 80,
+          radius: numbersArray[lvl-1],
         });
 
         heatmap.setMap(map);
@@ -128,17 +173,18 @@
       
       function placeCircle(latitude, longitude, radius, color) {
         console.log("PLACED");
-      const googleMaps = google.maps;
-      const mapCenter = new googleMaps.LatLng(latitude, longitude);
+        const googleMaps = google.maps;
+        const mapCenter = new googleMaps.LatLng(latitude, longitude);
 
-      const circle = new googleMaps.Circle({
-        center: mapCenter,
-        radius: 80000 * radius, // Set the radius in meters (adjust as needed)
-        fillColor: color,
-        fillOpacity: 0.08,
-        strokeWeight: 0,
-        map: map,
-      });
+        const circle = new googleMaps.Circle({
+          center: mapCenter,
+          radius: 80000 * radius, // Set the radius in meters (adjust as needed)
+          fillColor: color,
+          fillOpacity: 0.08,
+          strokeWeight: 0,
+          map: map,
+        });
+
       }
   
       (function () {
