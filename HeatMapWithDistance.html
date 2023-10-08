@@ -71,18 +71,47 @@
             // (!) shortest IS THE AMMOUNT OF MILES FROM HURRICANE USE THIS(!)
 
             let shortest = Math.min(...Distances);
-            console.log(shortest);
-
-
-
-
             
-
+            
+            
+            generate(shortest);
+            console.log(shortest);
+            
+            
+            
+            
+            
+            
             // Store the marker object in the markers array
             // pos y,x form
             
+          });
+          
+          async function generate(shortest) {
+          let prompt = `Give me an estimation of the windspeeds and rainfall amount ${shortest} miles away from the eye of a category 3 hurricane. Only answer in the format 'Estimated windspeed: mph-mph' and 'Estimated rainfall: x ft' do not answer with anything else except in the format given.`;
+          let url = "https://api.openai.com/v1/chat/completions"
+          try {
+            // Fetch the response from the OpenAI API with the signal from AbortController
+            const response = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer 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`,
+              },
+              body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "user", content: prompt }],
+              }),
             });
-
+            
+          const data = await response.json();
+          const p = data.choices[0].message.content;
+          console.log(p);
+        } catch (error) {
+          console.error("Error:", error);
+          const p = "Error occurred while generating.";
+        }
+      };
             
             
   
