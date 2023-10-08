@@ -14,22 +14,38 @@
 
     </style>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=default">
-      
-    </script>
 
-    <link rel="stylesheet" type="text/css" href="./style.css" />
-    <script type="module" src="./index.js"></script>
+    </script>
   </head>
   <body>
     <div id="map"></div>
 
-    
+
+    <div id="cat" style="position: absolute; top: 30px; right: 50px; border: 5px solid #045c5a; border-radius: 5px; padding: 3px; background-color:rgb(247, 247, 235);">
+      <label style="border-right: 2px solid red; padding: 4px;">Choose Category</label>
+      <button onclick="changeCategory()" id="level" value="1">1</button>
+    </div>
+
+    </div>
+  
+    <script>
+        function toggle(){
+            i=document.getElementById("level").value;
+            document.getElementById("level").innerHTML=(parseInt(i)%5)+1
+            document.getElementById("level").value=(parseInt(i)%5)+1
+        }
+    </script>
+
+
+
     <script>
       let map;
+      let infoWindow;
+
       async function initMap() {
         try {
           const googleMaps = await google.maps.importLibrary("maps");
-  
+
           const {Polyline} = await google.maps.importLibrary("maps");
 
           map = new googleMaps.Map(document.getElementById("map"), {
@@ -38,14 +54,21 @@
             gestureHandling: "none"
           });
 
-            let markerCoordinates;
-            let marker = new google.maps.Marker();
-            let markerPos = [];
-            let onLine;
-            let Distances = [];
+          let markerCoordinates;
+          let marker = new google.maps.Marker();
+          let markerPos = [];
+          let onLine;
+          let Distances = [];
 
-            // Add a click event listener to the map to place markers
-            google.maps.event.addListener(map, "click", function(event) {
+
+          infoWindow = new google.maps.InfoWindow({
+            content: "Estimated Damage: [PLACEHOLDER]<br>City: [CITY]<br>State: [STATE]", // Initial content of the InfoWindow
+
+          });
+
+
+          // Add a click event listener to the map to place markers
+          google.maps.event.addListener(map, "click", function(event) {
             // Get the latitude and longitude of the clicked point
             const latLng = event.latLng;
             Distances = [];
@@ -71,24 +94,55 @@
             // (!) shortest IS THE AMMOUNT OF MILES FROM HURRICANE USE THIS(!)
 
             let shortest = Math.min(...Distances);
-            
-            
-            
-            generate(shortest);
+
+
+
             console.log(shortest);
-            
-            
-            
-            
-            
-            
+
             // Store the marker object in the markers array
             // pos y,x form
-            
+
+            marker.setMap(map);
+
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: marker.getPosition() }, function (results, status) {
+              console.log("Geocoding Results:", results);
+              console.log("Geocoding Status:", status);
+
+              if (status === google.maps.GeocoderStatus.OK) {
+                if (results[0]) {
+                  const addressComponents = results[0].address_components;
+                  let city = "";
+                  let state = "";
+
+                  for (const component of addressComponents) {
+                    if (component.types.includes("locality")) {
+                      city = component.long_name;
+                    } else if (component.types.includes("administrative_area_level_1")) {
+                      state = component.short_name;
+                    }
+                  }
+                  generate(shortest, catInput).then(data => {
+                    infoWindow.setContent(`${data}<br>City: ${city}<br>State: ${state}`);
+                  });
+                  //infoWindow.setContent(`Estimated Damage: ${ret}<br>}City: ${city}<br>State: ${state}`);
+                  infoWindow.open(map, marker);
+                } else {
+                  console.log("No geocoding results found");
+                }
+              } else {
+                console.error("Geocoder failed due to: " + status);
+              }
+
+            });
+
+
+            infoWindow.open(map, marker);
+
           });
-          
-          async function generate(shortest) {
-          let prompt = `Give me an estimation of the windspeeds and rainfall amount ${shortest} miles away from the eye of a category 3 hurricane. Only answer in the format 'Estimated windspeed: mph-mph' and 'Estimated rainfall: x ft' do not answer with anything else except in the format given.`;
+
+          async function generate(shortest, cat) {
+          let prompt = `I want you to tell me the average wind speed and rainfall that a category ${cat} hurricane will cause to a location with a distance of ${shortest} miles away from the eye of the hurricane. I have rules that you must follow in order for your response to be correct, these rules must not be broken, it is absolutely essential that none of these rules are broken when giving your response. Rule 1: Your answer must be in the following format: Wind speed: your result mph Rainfall: your response inches If your response does not follow the formatting exactly, you are wrong. The your response should be replaced with the numbers that you come up with. Rule 2: The distance that I give you must be inversely proportional to your outputs, this means that your estimated rainfall and wind speed at 10 miles away must be significantly higher than your estimate at 100 miles away. Also this means that your estimated rainfall and wind speed at 50miles away must be slightly higher than your estimate at 100 miles away. Also this means that your estimated rainfall and wind speed at 100 miles away must be significantly lower than your estimate at 10miles away. It is extremely important that your response only contains the following: Wind speed, your estimate for wind speed, rainfall, your estimate for rainfall. This means that your response will only contain 3 words and two numbers with units, do not break this rule. Do not say that you understand these rules or anything similar, your response with numbers is the only text your should provide.`;
           let url = "https://api.openai.com/v1/chat/completions"
           try {
             // Fetch the response from the OpenAI API with the signal from AbortController
@@ -96,25 +150,24 @@
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer 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`,
+                Authorization: `Bearer ${YOUR_API_KEY}`,
               },
               body: JSON.stringify({
                 model: "gpt-3.5-turbo",
                 messages: [{ role: "user", content: prompt }],
+                max_tokens: 100,
               }),
             });
-            
+
           const data = await response.json();
           const p = data.choices[0].message.content;
-          console.log(p);
+          return String(p);
         } catch (error) {
           console.error("Error:", error);
           const p = "Error occurred while generating.";
         }
       };
-            
-            
-  
+
           const drawingManager = new google.maps.drawing.DrawingManager({
             drawingMode: google.maps.drawing.OverlayType.POLYLINE,
             drawingControl: true, // Enable the drawing control panel
@@ -123,9 +176,9 @@
               drawingModes: [
                 google.maps.drawing.OverlayType.MARKER,
                 google.maps.drawing.OverlayType.CIRCLE,
-                google.maps.drawing.OverlayType.POLYGON,
+                //google.maps.drawing.OverlayType.POLYGON,
                 google.maps.drawing.OverlayType.POLYLINE,
-                google.maps.drawing.OverlayType.RECTANGLE,
+                //google.maps.drawing.OverlayType.RECTANGLE,
               ],
             },
             markerOptions: {
@@ -140,7 +193,7 @@
               zIndex: 1,
             },
           });
-  
+
           drawingManager.setMap(map);
 
           // add listener for when polyline is complete
@@ -151,6 +204,8 @@
             let coordinates = [];
 
             let heatmapData = [];
+
+            let heatmapDataForDifRadii = [];
 
             Distances = [];
             let N = 100;
@@ -184,19 +239,25 @@
                     heatmapData.push(new google.maps.LatLng(x1 + xdiff * (j * 1.0 / N), y1 + ydiff * (j * 1.0 / N)))
                 }
                 onLine.push([y1 + ydiff * (j * 1.0 / N), x1 + xdiff * (j * 1.0 / N)]);
-              }     
-              }
-              console.log("ONLINE", onLine);
+              }  
+              
+              
+              const M = 8 * Math.sqrt(xdiff * xdiff + ydiff * ydiff);
 
-                 
-              
-              
-            loadHeatMap(heatmapData);
+              for (let j = 0; j <= M; j++) {
+                heatmapDataForDifRadii.push(new google.maps.LatLng(x1 + xdiff * (j * 1.0 / M), y1 + ydiff * (j * 1.0 / M)))
+              } 
+
+
+            }
+            console.log("ONLINE", onLine);
+
+
+            loadHeatMap(heatmapDataForDifRadii);
 
 
 
           });
-    
 
     const polyline = new Polyline({
       strokeColor: "#FF0000",
@@ -205,7 +266,7 @@
     });
 
     polyline.setMap(map);
-        
+
     heatmap.setMap(map);
 
         } catch (error) {
@@ -213,32 +274,46 @@
         }
       }
 
+
+      let catInput = 1; // Initialize with the default category value
+
+      function changeCategory() {
+        const button = document.getElementById("level");
+        catInput = parseInt(button.value);
+        button.innerHTML = (catInput % 5) + 1;
+        button.value = (catInput % 5) + 1;
+      }
+
       function loadHeatMap(data) {
         console.log("placed heatmap");
+        const numbersArray = [8.432, 10.261, 12, 14.26, 15.5];
+        cat = document.getElementById("level");
+        lvl = parseInt(cat.value);
+        console.log(numbersArray[lvl-1]);
         var heatmap = new google.maps.visualization.HeatmapLayer({
           data: data,
-          radius: 80,
+          radius: numbersArray[lvl-1],
           opacity: 0.5
         });
 
         heatmap.setMap(map);
       }
-      
+
       function placeCircle(latitude, longitude, radius, color) {
         console.log("PLACED");
-      const googleMaps = google.maps;
-      const mapCenter = new googleMaps.LatLng(latitude, longitude);
+        const googleMaps = google.maps;
+        const mapCenter = new googleMaps.LatLng(latitude, longitude);
 
-      const circle = new googleMaps.Circle({
-        center: mapCenter,
-        radius: 80000 * radius, // Set the radius in meters (adjust as needed)
-        fillColor: color,
-        fillOpacity: 0.08,
-        strokeWeight: 0,
-        map: map,
-      });
+        const circle = new googleMaps.Circle({
+          center: mapCenter,
+          radius: 80000 * radius, // Set the radius in meters (adjust as needed)
+          fillColor: color,
+          fillOpacity: 0.08,
+          strokeWeight: 0,
+          map: map,
+        });
       }
-  
+
       (function () {
         const script = document.createElement("script");
         script.type = "text/javascript";
