@@ -1,0 +1,329 @@
+<html>
+  <head>
+    <title>Simple Map</title>
+    <style>
+    #map {
+      height: 100%;
+    }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default">
+
+    </script>
+
+    <link rel="stylesheet" type="text/css" href="./style.css" />
+    <script type="module" src="./index.js"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+
+
+    <div id="cat" style="position: absolute; top: 30px; right: 50px; border: 5px solid #045c5a; border-radius: 5px; padding: 3px; background-color:rgb(247, 247, 235);">
+      <label style="border-right: 2px solid red; padding: 4px;">Choose Category</label>
+      <button onclick="changeCategory()" id="level" value="1">1</button>
+    </div>
+
+    </div>
+  
+    <script>
+        function toggle(){
+            i=document.getElementById("level").value;
+            document.getElementById("level").innerHTML=(parseInt(i)%5)+1
+            document.getElementById("level").value=(parseInt(i)%5)+1
+        }
+    </script>
+
+
+
+    <script>
+      let map;
+      let infoWindow;
+
+      async function initMap() {
+        try {
+          const googleMaps = await google.maps.importLibrary("maps");
+
+          const {Polyline} = await google.maps.importLibrary("maps");
+
+          map = new googleMaps.Map(document.getElementById("map"), {
+            center: { lat: 37.0902, lng: -95.7129 },
+            zoom: 4,
+            gestureHandling: "none"
+          });
+
+          let markerCoordinates;
+          let marker = new google.maps.Marker();
+          let markerPos = [];
+          let onLine;
+          let Distances = [];
+
+
+          infoWindow = new google.maps.InfoWindow({
+            content: "Estimated Damage: [PLACEHOLDER]<br>City: [CITY]<br>State: [STATE]", // Initial content of the InfoWindow
+
+          });
+
+
+          // Add a click event listener to the map to place markers
+          google.maps.event.addListener(map, "click", function(event) {
+            // Get the latitude and longitude of the clicked point
+            const latLng = event.latLng;
+            Distances = [];
+
+            // Create a marker at the clicked point
+            let marker = new google.maps.Marker({
+                position: latLng,
+                map: map,
+            });
+            markerPos = [marker.getPosition().lat(), marker.getPosition().lng()];
+            // calc distances
+            if (onLine) {
+                for (let i = 0; i < onLine.length; i++) {
+                    Distances.push(Math.sqrt(Math.pow((markerPos[0] * 69 - onLine[i][1] * 69), 2) + Math.pow(markerPos[1] * 54.6 - onLine[i][0] * 54.6, 2)));
+                    //console.log("numsoon");
+                    //console.log(Math.sqrt(Math.pow((markerPos[0] * 69 - onLine[i][1] * 69), 2) + Math.pow(markerPos[1] * 54.6 - onLine[i][0] * 54.6, 2)));
+                }
+            }
+
+
+
+            //!!!!!!!!!!!!!!!!!!!!!!!!!
+            // (!) shortest IS THE AMMOUNT OF MILES FROM HURRICANE USE THIS(!)
+
+            let shortest = Math.min(...Distances);
+
+
+
+            generate(shortest);
+            console.log(shortest);
+
+            // Store the marker object in the markers array
+            // pos y,x form
+
+            marker.setMap(map);
+
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: marker.getPosition() }, function (results, status) {
+              console.log("Geocoding Results:", results);
+              console.log("Geocoding Status:", status);
+
+              if (status === google.maps.GeocoderStatus.OK) {
+                if (results[0]) {
+                  const addressComponents = results[0].address_components;
+                  let city = "";
+                  let state = "";
+
+                  for (const component of addressComponents) {
+                    if (component.types.includes("locality")) {
+                      city = component.long_name;
+                    } else if (component.types.includes("administrative_area_level_1")) {
+                      state = component.short_name;
+                    }
+                  }
+
+                  infoWindow.setContent(`Estimated Damage: <br>City: ${city}<br>State: ${state}`);
+                  infoWindow.open(map, marker);
+                } else {
+                  console.log("No geocoding results found");
+                }
+              } else {
+                console.error("Geocoder failed due to: " + status);
+              }
+
+            });
+
+
+            infoWindow.open(map, marker);
+
+          });
+
+          async function generate(shortest) {
+          let apiKey = process.env.API_KEY;
+          let prompt = `Give me an estimation of the windspeeds and rainfall amount ${shortest} miles away from the eye of a category 3 hurricane. Only answer in the format 'Estimated windspeed: mph-mph' and 'Estimated rainfall: x ft' do not answer with anything else except in the format given.`;
+          let url = "https://api.openai.com/v1/chat/completions"
+          try {
+            // Fetch the response from the OpenAI API with the signal from AbortController
+            const response = await fetch(url, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "user", content: prompt }],
+              }),
+            });
+
+          const data = await response.json();
+          const p = data.choices[0].message.content;
+          console.log(p);
+        } catch (error) {
+          console.error("Error:", error);
+          const p = "Error occurred while generating.";
+        }
+      };
+
+          const drawingManager = new google.maps.drawing.DrawingManager({
+            drawingMode: google.maps.drawing.OverlayType.POLYLINE,
+            drawingControl: true, // Enable the drawing control panel
+            drawingControlOptions: {
+              position: google.maps.ControlPosition.TOP_CENTER,
+              drawingModes: [
+                google.maps.drawing.OverlayType.MARKER,
+                google.maps.drawing.OverlayType.CIRCLE,
+                //google.maps.drawing.OverlayType.POLYGON,
+                google.maps.drawing.OverlayType.POLYLINE,
+                //google.maps.drawing.OverlayType.RECTANGLE,
+              ],
+            },
+            markerOptions: {
+              icon: "https://developers.google.com/maps/documentation/javascript/examples/full/images/beachflag.png",
+            },
+            circleOptions: {
+              fillColor: "#ffff00",
+              fillOpacity: 1,
+              strokeWeight: 5,
+              clickable: false,
+              editable: true,
+              zIndex: 1,
+            },
+          });
+
+          drawingManager.setMap(map);
+
+          // add listener for when polyline is complete
+          google.maps.event.addListener(drawingManager, "polylinecomplete", function (polyline) {
+            console.log("eventhandled");
+            // get path
+            const path = polyline.getPath();
+            let coordinates = [];
+
+            let heatmapData = [];
+
+            let heatmapDataForDifRadii = [];
+
+            Distances = [];
+            let N = 100;
+
+            // x,y FORMAT
+            onLine = [];
+
+            // for coordinate in path, add lat and lang to coordinates
+            for (let i = 0; i < path.getLength(); i++) {
+              const latLng = path.getAt(i);
+              coordinates.push({ lat: latLng.lat(), lng: latLng.lng() });
+            }
+
+            for (let i = 1; i < coordinates.length; i++) {
+              let x1 = coordinates[i - 1]['lat'], y1 = coordinates[i - 1]['lng'];
+              let x2 = coordinates[i]['lat'], y2 = coordinates[i]['lng'];
+              console.log(`x1: ${x1}, x2: ${x2}, y1: ${y1}, y21: ${y2} `)
+              let xdiff = x2 - x1;
+              let ydiff = y2 - y1;
+
+
+              // increase datapoints for more accurate result
+              let datapoints = 40;
+              // increase datapoints for more accurate result
+
+
+              N = datapoints * Math.sqrt(xdiff * xdiff + ydiff * ydiff);
+
+              for (let j = 0; j <= N; j++) {
+                if (j % (datapoints * 2) == 0) {
+                    heatmapData.push(new google.maps.LatLng(x1 + xdiff * (j * 1.0 / N), y1 + ydiff * (j * 1.0 / N)))
+                }
+                onLine.push([y1 + ydiff * (j * 1.0 / N), x1 + xdiff * (j * 1.0 / N)]);
+              }  
+              
+              
+              const M = 8 * Math.sqrt(xdiff * xdiff + ydiff * ydiff);
+
+              for (let j = 0; j <= M; j++) {
+                heatmapDataForDifRadii.push(new google.maps.LatLng(x1 + xdiff * (j * 1.0 / M), y1 + ydiff * (j * 1.0 / M)))
+              } 
+
+
+            }
+            console.log("ONLINE", onLine);
+
+
+            loadHeatMap(heatmapDataForDifRadii);
+
+
+
+          });
+
+    const polyline = new Polyline({
+      strokeColor: "#FF0000",
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+    });
+
+    polyline.setMap(map);
+
+    heatmap.setMap(map);
+
+        } catch (error) {
+          console.error("Error loading Google Maps:", error);
+        }
+      }
+
+
+      let catInput = 1; // Initialize with the default category value
+
+      function changeCategory() {
+        const button = document.getElementById("level");
+        catInput = parseInt(button.value);
+        button.innerHTML = (catInput % 5) + 1;
+        button.value = (catInput % 5) + 1;
+      }
+
+      function loadHeatMap(data) {
+        console.log("placed heatmap");
+        const numbersArray = [8.432, 10.261, 12, 14.26, 15.5];
+        cat = document.getElementById("level");
+        lvl = parseInt(cat.value);
+        console.log(numbersArray[lvl-1]);
+        var heatmap = new google.maps.visualization.HeatmapLayer({
+          data: data,
+          radius: numbersArray[lvl-1],
+          opacity: 0.5
+        });
+
+        heatmap.setMap(map);
+      }
+
+      function placeCircle(latitude, longitude, radius, color) {
+        console.log("PLACED");
+        const googleMaps = google.maps;
+        const mapCenter = new googleMaps.LatLng(latitude, longitude);
+
+        const circle = new googleMaps.Circle({
+          center: mapCenter,
+          radius: 80000 * radius, // Set the radius in meters (adjust as needed)
+          fillColor: color,
+          fillOpacity: 0.08,
+          strokeWeight: 0,
+          map: map,
+        });
+      }
+
+      (function () {
+        const script = document.createElement("script");
+        script.type = "text/javascript";
+        script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyDTzpaKQTB1aPe0bMPb30mQUzWKnq2QFlQ&v=weekly&callback=initMap&libraries=places,drawing,visualization`;
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>
